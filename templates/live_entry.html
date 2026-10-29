@@ -3,85 +3,103 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Live Entry · Data Transfer Report</title>
+  <title>Live Entry · Data Transfer</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='glass.css') }}">
   <style>
-    .page{max-width:1240px;margin:28px auto;padding:0 18px 36px}
-    .panel{margin:18px 0;padding:22px;border-radius:16px}
-    .filters{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;align-items:end}
-    label{display:block;font-size:.9rem;font-weight:600;margin-bottom:6px}
-    input{box-sizing:border-box;width:100%;min-height:42px;padding:10px;border:1px solid #cbd5e1;border-radius:9px;font:inherit}
-    .actions{display:flex;gap:8px;flex-wrap:wrap}
-    .stats{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:12px}
-    .stat{padding:16px;border:1px solid rgba(148,163,184,.28);border-radius:13px;background:rgba(255,255,255,.48)}
-    .stat small{display:block;opacity:.76;margin-bottom:7px}
-    .stat strong{font-size:1.55rem;overflow-wrap:anywhere}
-    .table-wrap{overflow-x:auto}
-    table{width:100%;border-collapse:collapse;min-width:850px}
-    th,td{text-align:left;padding:12px;border-bottom:1px solid rgba(148,163,184,.3);vertical-align:top}
-    th{font-size:.82rem;white-space:nowrap}
-    .muted{opacity:.76;font-size:.9rem;line-height:1.5}
-    .btn{display:inline-block;padding:9px 12px;border-radius:9px;text-decoration:none}
-    @media(max-width:760px){.filters,.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.page{margin-top:14px}.panel{padding:15px}}
-    @media(max-width:440px){.filters,.stats{grid-template-columns:1fr}}
+    :root{--ink:#18243a;--muted:#68758a;--line:#e3eaf4;--blue:#315fce;--pale:#f3f7ff}
+    body{color:var(--ink)}
+    .page{max-width:1120px;margin:28px auto;padding:0 20px 44px}
+    .navline{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:20px;font-size:.9rem;color:var(--muted)}
+    .navline a{color:#315fce;text-decoration:none;font-weight:650}
+    .hero{position:relative;overflow:hidden;padding:28px;border-radius:22px;background:linear-gradient(125deg,#142d50,#315fce 72%,#7c8ee8);color:#fff;box-shadow:0 18px 40px #24477b24}
+    .hero:after{content:"";position:absolute;width:240px;height:240px;border:1px solid #ffffff24;border-radius:50%;right:-55px;top:-95px;box-shadow:0 0 0 30px #ffffff08,0 0 0 60px #ffffff06}
+    .hero .eyebrow{font-size:.74rem;font-weight:750;letter-spacing:.13em;text-transform:uppercase;color:#d8e5ff}
+    .hero h1{font-size:clamp(1.7rem,3vw,2.35rem);letter-spacing:-.035em;line-height:1.12;margin:10px 0}
+    .hero p{max-width:650px;color:#e1eaff;line-height:1.6;margin:0}
+    .panel{background:rgba(255,255,255,.88);border:1px solid #e0e8f3;border-radius:18px;padding:22px;box-shadow:0 8px 26px #18345b0a;margin-top:18px}
+    .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
+    h2{font-size:1.12rem;letter-spacing:-.02em;margin:0 0 6px}
+    .muted{font-size:.9rem;color:var(--muted);line-height:1.55;margin:0}
+    .upload-box{display:flex;align-items:center;gap:16px;padding:18px;border:1px dashed #a9bee2;border-radius:14px;background:linear-gradient(120deg,#f7faff,#f0f5ff);flex-wrap:wrap}
+    .upload-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px;background:#e1eaff;color:#315fce;display:grid;place-items:center;font-size:23px}
+    .upload-copy{flex:1;min-width:180px}
+    .upload-copy strong{display:block;margin-bottom:4px}
+    input{box-sizing:border-box;width:100%;min-height:42px;padding:10px 12px;border:1px solid #cbd6e6;border-radius:10px;background:#fff;color:var(--ink);font:inherit}
+    input:focus{outline:3px solid #cbdcff;border-color:#6f91e8}
+    label{display:block;font-size:.82rem;font-weight:700;margin:0 0 7px}
+    .file-input{max-width:320px}
+    button,.btn{display:inline-flex;justify-content:center;align-items:center;gap:7px;border:0;border-radius:10px;padding:11px 15px;background:linear-gradient(120deg,#315fce,#594ed0);color:#fff;font-weight:700;font:inherit;text-decoration:none;cursor:pointer;white-space:nowrap}
+    .btn.secondary{background:#edf2fb;color:#2a477a;border:1px solid #dbe5f5}
+    .filters{display:grid;grid-template-columns:1fr 1fr 1.3fr auto;gap:12px;align-items:end}
+    .filter-actions{display:flex;gap:8px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:13px}
+    table{width:100%;border-collapse:collapse;min-width:650px;background:#fff}
+    th,td{text-align:left;padding:14px 15px;border-bottom:1px solid #edf1f7;vertical-align:middle}
+    th{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:#69778d;background:#f7f9fd;white-space:nowrap}
+    tbody tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#f9fbff}
+    .filename{font-weight:700;overflow-wrap:anywhere;max-width:320px}
+    .subline{display:block;color:var(--muted);font-size:.78rem;font-weight:400;margin-top:4px}
+    .number{font-weight:750;font-variant-numeric:tabular-nums}
+    .statusline{display:flex;gap:5px;flex-wrap:wrap}
+    .chip{display:inline-block;padding:5px 8px;border-radius:20px;font-size:.75rem;font-weight:700;background:#edf2fa;color:#4c5d76}
+    .chip.good{background:#e1f6ea;color:#177044}.chip.bad{background:#fff0e8;color:#a44a22}.chip.unknown{background:#fff5d8;color:#855e05}
+    .open-link{font-weight:750;color:#315fce;text-decoration:none;white-space:nowrap}
+    .empty{padding:28px;text-align:center;color:var(--muted)}
+    .flash{padding:12px 14px;background:#fff4dc;border:1px solid #f2dda3;border-radius:12px}
+    @media(max-width:780px){.page{margin:16px auto;padding:0 13px 30px}.hero{padding:22px}.panel{padding:16px}.filters{grid-template-columns:1fr 1fr}.filter-actions{grid-column:1/-1}.upload-box{align-items:flex-start}}
+    @media(max-width:460px){.filters{grid-template-columns:1fr}.filter-actions{grid-column:auto}.file-input{max-width:none}.upload-box button{width:100%}.section-head{display:block}.section-head .btn{margin-top:10px}}
   </style>
 </head>
 <body>
 <main class="page">
-  <p><a href="/">Dashboard</a> · <a href="/automation">Form browser</a> · <a href="/history">Browser run history</a></p>
+  <nav class="navline"><a href="/">← Dashboard</a><span>/</span><span>Live Entry</span><span>/</span><a href="/history">Browser history</a></nav>
+  <header class="hero">
+    <div class="eyebrow">Spreadsheet workspace</div>
+    <h1>Live Entry</h1>
+    <p>Upload a workbook, review validation progress, and open a batch only when you need its row-level details.</p>
+  </header>
+
+  {% with messages = get_flashed_messages() %}{% for message in messages %}<p class="flash" role="alert">{{ message }}</p>{% endfor %}{% endwith %}
+
   <section class="panel">
-    <h1>Data Transfer Report</h1>
-    <p class="muted">Per uploaded Excel file, see how many data rows were loaded, validated, had a submission attempt, were confirmed submitted, failed, or remain unknown. The report filters by the file's upload date.</p>
+    <div class="section-head"><div><h2>Upload a spreadsheet</h2><p class="muted">Excel workbook (.xlsx), up to 10 MB. A preview and validation status will be available after upload.</p></div></div>
     <form method="post" action="{{ url_for('live_batches.upload') }}" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label for="workbook">Upload Excel (.xlsx)</label>
-      <input id="workbook" type="file" name="workbook" accept=".xlsx" required>
-      <button type="submit">Upload Excel</button>
+      <div class="upload-box">
+        <div class="upload-icon" aria-hidden="true">↥</div>
+        <div class="upload-copy"><strong>Choose an Excel file</strong><span class="muted">Your existing workbook columns are kept intact.</span></div>
+        <div class="file-input"><label for="workbook">Workbook file</label><input id="workbook" type="file" name="workbook" accept=".xlsx" required></div>
+        <button type="submit">Upload workbook <span aria-hidden="true">→</span></button>
+      </div>
     </form>
   </section>
 
   <section class="panel">
-    <h2>Summary for selected dates</h2>
-    <div class="stats">
-      <div class="stat"><small>Files</small><strong>{{ totals.files or 0 }}</strong></div>
-      <div class="stat"><small>Data rows loaded</small><strong>{{ totals.total_rows or 0 }}</strong></div>
-      <div class="stat"><small>Validated rows</small><strong>{{ totals.validated_rows or 0 }}</strong></div>
-      <div class="stat"><small>Submission attempts</small><strong>{{ totals.attempted_rows or 0 }}</strong></div>
-      <div class="stat"><small>Confirmed submitted</small><strong>{{ totals.submitted_rows or 0 }}</strong></div>
-      <div class="stat"><small>Failed rows</small><strong>{{ totals.failed_rows or 0 }}</strong></div>
-      <div class="stat"><small>Unknown outcome</small><strong>{{ totals.unknown_rows or 0 }}</strong></div>
-    </div>
-    <p class="muted">Important: “Submission attempts” means the agent recorded an attempt; it does not by itself prove the remote website accepted the data. “Confirmed submitted” counts rows whose local status is SUBMITTED. Unknown outcomes should be checked on the target website before retrying.</p>
-  </section>
-
-  <section class="panel">
-    <h2>Filter files by upload date</h2>
+    <div class="section-head"><div><h2>Uploaded files</h2><p class="muted">Search by date or filename. Open a file to see detailed row statuses.</p></div><span class="chip">{{ totals.files or 0 }} files</span></div>
     <form method="get" class="filters">
       <div><label for="from_date">From date</label><input id="from_date" type="date" name="from_date" value="{{ from_date }}"></div>
       <div><label for="to_date">To date</label><input id="to_date" type="date" name="to_date" value="{{ to_date }}"></div>
-      <div><label for="filename">File name</label><input id="filename" name="filename" value="{{ filename }}" placeholder="Search filename"></div>
-      <div class="actions"><button type="submit">Apply filters</button><a class="btn" href="{{ url_for('live_batches.index') }}">Clear</a></div>
+      <div><label for="filename">Filename</label><input id="filename" name="filename" value="{{ filename }}" placeholder="Search filenames"></div>
+      <div class="filter-actions"><button type="submit">Filter</button><a class="btn secondary" href="{{ url_for('live_batches.index') }}">Reset</a></div>
     </form>
-  </section>
-
-  {% with messages = get_flashed_messages() %}{% for message in messages %}<p role="alert">{{ message }}</p>{% endfor %}{% endwith %}
-  <section class="panel">
-    <h2>File-wise row report</h2>
+    <div style="height:18px"></div>
     <div class="table-wrap"><table>
-      <thead><tr><th>File</th><th>Uploaded</th><th>Rows loaded</th><th>Validated</th><th>Submission attempts</th><th>Confirmed submitted</th><th>Failed</th><th>Unknown</th><th>Details</th></tr></thead>
+      <thead><tr><th>Workbook</th><th>Rows</th><th>Progress snapshot</th><th></th></tr></thead>
       <tbody>
       {% for batch in batches %}
         <tr>
-          <td>{{ batch.filename }}</td><td>{{ batch.created_at }}</td><td>{{ batch.total_rows or 0 }}</td>
-          <td>{{ batch.validated_rows or 0 }}</td><td>{{ batch.attempted_rows or 0 }}</td>
-          <td>{{ batch.submitted_rows or 0 }}</td><td>{{ batch.failed_rows or 0 }}</td><td>{{ batch.unknown_rows or 0 }}</td>
-          <td><a href="{{ url_for('live_batches.detail', batch_id=batch.id) }}">Open rows</a></td>
+          <td><span class="filename">{{ batch.filename }}</span><span class="subline">{{ batch.created_at }}</span></td>
+          <td><span class="number">{{ batch.total_rows or 0 }}</span><span class="subline">data rows</span></td>
+          <td><div class="statusline"><span class="chip good">{{ batch.submitted_rows or 0 }} confirmed</span><span class="chip">{{ batch.validated_rows or 0 }} validated</span><span class="chip bad">{{ batch.failed_rows or 0 }} failed</span>{% if batch.unknown_rows %}<span class="chip unknown">{{ batch.unknown_rows }} unknown</span>{% endif %}</div></td>
+          <td><a class="open-link" href="{{ url_for('live_batches.detail', batch_id=batch.id) }}">Open batch →</a></td>
         </tr>
       {% else %}
-        <tr><td colspan="9">No uploaded files match these filters.</td></tr>
+        <tr><td colspan="4" class="empty">No workbooks match these filters. Upload a workbook to begin.</td></tr>
       {% endfor %}
       </tbody>
     </table></div>
+    <p class="muted" style="margin-top:12px">“Confirmed” counts rows marked SUBMITTED in this app. Attempts or unknown outcomes are not counted as confirmed transfers.</p>
   </section>
 </main>
 </body>
