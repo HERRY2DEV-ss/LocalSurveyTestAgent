@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from contextlib import contextmanager
 import atexit
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file, abort, session, jsonify
@@ -157,7 +158,38 @@ def make_answers(name):
 def index():
     with db() as con:
         count = con.execute("SELECT COUNT(*) FROM submissions WHERE status='SUBMITTED_LOCAL'").fetchone()[0]
-    return render_template('index.html', names='', count=count, daily_limit=current_daily_limit())
+        live_rows = con.execute("""
+            SELECT b.id AS batch_id, b.filename, b.created_at, r.status
+            FROM live_batches b
+            LEFT JOIN live_batch_rows r ON r.batch_id=b.id
+            ORDER BY b.created_at DESC
+        """).fetchall()
+    india = ZoneInfo('Asia/Kolkata')
+    days = {}
+    for row in live_rows:
+        try:
+            day_key = datetime.fromisoformat(row['created_at']).astimezone(india).date().isoformat()
+        except (TypeError, ValueError):
+            day_key = str(row['created_at'])[:10]
+        day = days.setdefault(day_key, {
+            'day': day_key, 'files': set(), 'rows': 0, 'submitted': 0,
+            'validated': 0, 'failed': 0, 'unknown': 0,
+        })
+        day['files'].add(row['batch_id'])
+        if row['status'] is not None:
+            day['rows'] += 1
+            day['submitted'] += int(row['status'] == 'SUBMITTED')
+            day['validated'] += int(row['status'] == 'VALIDATED')
+            day['failed'] += int(row['status'] == 'FAILED')
+            day['unknown'] += int(row['status'] == 'UNKNOWN')
+    live_days = []
+    for day in sorted(days.values(), key=lambda item: item['day'], reverse=True)[:7]:
+        day['files'] = len(day['files'])
+        day['label'] = datetime.fromisoformat(day['day']).strftime('%a, %d %b %Y')
+        live_days.append(day)
+    today = datetime.now(india).date().isoformat()
+    return render_template('index.html', names='', count=count, daily_limit=current_daily_limit(),
+                           live_days=live_days, today=today)
 
 @app.route('/automation')
 def automation():
