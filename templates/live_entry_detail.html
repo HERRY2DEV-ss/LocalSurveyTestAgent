@@ -1,0 +1,59 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Live Entry batch</title><style>body{font-family:Arial;max-width:1000px;margin:2em auto;padding:0 1em}label{display:block;margin:.7em 0}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:.5em;text-align:left}</style></head><body><main>
+<p><a href="{{ url_for('live_batches.index') }}">Live Entry</a> · <a href="/">Dashboard</a></p>
+<h1>{{ batch.filename }}</h1><p>{{ rows|length }} data rows. Rows marked PENDING have not been validated against the website.</p>
+<p>Detected header row: {{ layout.header_row }} · Actual non-empty data rows: {{ layout.data_rows|length }} · Populated columns: {{ layout.column_count }}.{% if layout.header_row > 1 %} Populated cells above the header are retained as workbook metadata and are not patient rows.{% endif %}</p>
+<p id="progress-summary">Validated: {{ rows|selectattr('status', 'equalto', 'VALIDATED')|list|length }} · Failed: {{ rows|selectattr('status', 'equalto', 'FAILED')|list|length }} · Pending: {{ rows|selectattr('status', 'equalto', 'PENDING')|list|length }} · Unknown: {{ rows|selectattr('status', 'equalto', 'UNKNOWN')|list|length }} · Submitted: {{ rows|selectattr('status', 'equalto', 'SUBMITTED')|list|length }}</p>
+<p id="progress-current" aria-live="polite">Checking progress…</p>
+<p>Questionnaire mapping version {{ questionnaire.version }}; fingerprint {{ questionnaire.fingerprint }}. The current website must be rechecked before processing.</p>
+<p>Dry runs fill the real questionnaire without final submission. A live submission is available only after reviewing and authorizing the eligible answers. Spreadsheet data is stored in the application's SQLite database.</p>
+{% with messages = get_flashed_messages() %}{% for message in messages %}<p role="alert">{{ message }}</p>{% endfor %}{% endwith %}
+<h2>Detected column mapping</h2><p>Matches ignore case and repeated spaces. Review the mapping and confirm consent is authorized. For checkbox groups, separate options with commas, semicolons or newlines; enter <b>None</b> only when no option applies. Consent must be Yes, True, 1, Tick, or Selected.</p>
+{% if mapping_errors %}<p><strong>Automatic mapping needs attention:</strong></p><ul>{% for error in mapping_errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+<table><thead><tr><th>Questionnaire field</th><th>Excel header</th><th>Automatic match</th></tr></thead><tbody>{% for field in fields %}<tr><td>{{ questionnaire.fields[loop.index0].label }}</td><td>{{ mapping.get(field, 'Unresolved') }}</td><td>{{ 'Matched' if auto.get(field) else 'Unresolved or ambiguous' }}</td></tr>{% endfor %}</tbody></table>
+<form method="post" action="{{ url_for('live_batches.auto_map', batch_id=batch.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" {% if mapping_errors %}disabled{% endif %}>Recheck automatic mapping and values</button></form>
+<details {% if mapping_errors %}open{% endif %}><summary>Correct column mapping manually</summary><form method="post" action="{{ url_for('live_batches.mapping', batch_id=batch.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for field in fields %}
+<label for="column-{{ loop.index }}">{{ questionnaire.fields[loop.index0].label }}</label>
+<select id="column-{{ loop.index }}" name="{{ field }}" required>
+  <option value="">Select column</option>
+  {% for header in headers if header and ' '.join(header.split())|lower not in ['form id', 'status', 'failure reason'] %}
+  <option value="{{ header }}" {% if mapping.get(field, field) == header %}selected{% endif %}>{{ ' '.join(header.split()) }}</option>
+  {% endfor %}
+</select>
+{% endfor %}
+<button type="submit">Check headers and required values</button></form></details>
+<form method="post" action="{{ url_for('live_batches.dry_run', batch_id=batch.id) }}" onsubmit="return confirm('Start a dry run using the patient data and consent in this workbook? No final submissions will be made.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Run dry validation</button></form>
+<form method="post" action="{{ url_for('live_batches.retry_failed', batch_id=batch.id) }}" onsubmit="return confirm('Retry eligible failed rows as a dry run? No final submissions will be made.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Retry failed rows</button></form>
+<h2>Rows</h2><table><thead><tr><th>Excel row</th><th>Status</th><th>Form ID</th><th>Updated</th><th>Reason</th></tr></thead><tbody id="row-statuses">
+{% for row in rows %}<tr><td>{{ row.row_number }}</td><td>{{ row.status }}</td><td>{{ row.form_id or '' }}</td><td>{{ row.updated_at }}</td><td>{{ row.error }}</td></tr>{% endfor %}</tbody></table>
+<form method="get" action="{{ url_for('live_batches.review', batch_id=batch.id) }}">
+<button id="submit-entries" type="submit" {% if not submission.enabled %}disabled{% endif %}>Submit Entries</button>
+<span id="submission-reason" role="status">{{ submission.candidate_count }} validated candidates. {{ submission.reason }}</span>
+</form>
+<p><a href="{{ url_for('live_batches.export', batch_id=batch.id) }}">Export Excel Report</a></p>
+</main><script>
+async function refreshProgress() {
+  try {
+    const response = await fetch({{ url_for('live_batches.progress', batch_id=batch.id)|tojson }}, {cache: 'no-store'});
+    if (!response.ok) throw new Error('Progress unavailable');
+    const data = await response.json();
+    const c = data.counts;
+    document.getElementById('submit-entries').disabled = !data.submission.enabled;
+    document.getElementById('submission-reason').textContent = `${data.submission.candidate_count} validated candidates. ${data.submission.reason}`;
+    document.getElementById('progress-summary').textContent = `Total: ${data.total} · Processed: ${data.processed} · Validated: ${c.VALIDATED} · Failed: ${c.FAILED} · Pending: ${c.PENDING} · Unknown: ${c.UNKNOWN} · Submitted: ${c.SUBMITTED}`;
+    document.getElementById('progress-current').textContent = data.current_row !== null ? `Processing Excel row ${data.current_row}.` : (data.running ? 'Starting dry run…' : 'No row currently processing.');
+    const body = document.getElementById('row-statuses');
+    body.replaceChildren(...data.rows.map(row => {
+      const tr = document.createElement('tr');
+      for (const value of [row.row_number, row.status, row.form_id || '', row.updated_at, row.error || '']) {
+        const cell = document.createElement('td'); cell.textContent = String(value); tr.append(cell);
+      }
+      return tr;
+    }));
+  } catch (error) {
+    document.getElementById('progress-current').textContent = 'Progress unavailable; refresh or sign in again.';
+  }
+}
+refreshProgress(); setInterval(refreshProgress, 2000);
+</script></body></html>

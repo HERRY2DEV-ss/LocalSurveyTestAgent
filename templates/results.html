@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local batch results</title>
+  <style>
+    body{font:16px Arial,sans-serif;background:#f3f5f8;color:#172033;margin:0}
+    main{max-width:900px;margin:30px auto;padding:24px;background:white;border:1px solid #dce2eb;border-radius:14px}
+    table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #e1e6ee}
+    th{background:#244062;color:white}a,button{display:inline-block;background:#1e5aa6;color:white;padding:10px 14px;border:0;border-radius:8px;text-decoration:none;margin:12px 8px 0 0}
+    .status{font-weight:bold}.note{color:#5b677a}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Local batch results</h1>
+    <p class="note">These results describe local SQLite writes only. They are not submissions to another website.</p>
+    <table>
+      <thead><tr><th>Test name</th><th>Status</th><th>Local ID</th><th>Record</th><th>Error</th></tr></thead>
+      <tbody>
+      {% for result in results %}
+        <tr>
+          <td>{{ result.name }}</td>
+          <td class="status">{{ result.status }}</td>
+          <td>{{ result.id or 'Not available' }}</td>
+          <td>{% if result.url %}<a href="{{ result.url }}">View local record</a>{% else %}Not available{% endif %}</td>
+          <td>{{ result.error or '' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <a href="/">Dashboard</a><a href="/export.xlsx">Export Excel (.xlsx)</a>
+  </main>
+</body>
+</html>

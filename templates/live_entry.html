@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Live Entry</title></head>
+<body><main><p><a href="/">Dashboard</a></p><h1>Live Entry</h1>
+<p>Upload a workbook, inspect its columns, and run a live-page dry validation. Eligible rows require review and explicit authorization before live submission.</p>
+{% with messages = get_flashed_messages() %}{% for message in messages %}<p role="alert">{{ message }}</p>{% endfor %}{% endwith %}
+<form method="post" action="{{ url_for('live_batches.upload') }}" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="workbook">Upload Excel (.xlsx)</label> <input id="workbook" type="file" name="workbook" accept=".xlsx" required>
+<button type="submit">Upload Excel</button></form>
+<h2>Saved batches</h2><ul>{% for batch in batches %}<li><a href="{{ url_for('live_batches.detail', batch_id=batch.id) }}">{{ batch.filename }}</a> — {{ batch.created_at }}</li>{% else %}<li>No batches uploaded.</li>{% endfor %}</ul></main></body></html>

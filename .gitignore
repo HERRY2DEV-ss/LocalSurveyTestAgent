@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+test_submissions.sqlite3
+.env
+.app-secret-key
+
+# Local browser binaries and generated artifacts
+.playwright-browsers/
+*.zip
+live-*.png
+sample_report.xlsx
+
+# Local databases and secrets
+*.sqlite3
+.env
+.app-secret-key

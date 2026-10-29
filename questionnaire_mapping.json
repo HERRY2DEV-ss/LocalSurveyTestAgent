@@ -1,0 +1,383 @@
+{
+  "version": "1",
+  "source_url": "https://seeedemaseekhelp.com/Ma_Vaishno_Devi/form.php?lan_id=3",
+  "initial_steps": {
+    "language_label": "English",
+    "consent_label": "I Consent, View more.",
+    "navigation_button": "Submit"
+  },
+  "fingerprint": "3224a3d1246126abff68dac7476339c6520bd6e52957e0f2cc23dd3796527602",
+  "fields": [
+    {
+      "column": "Full Name",
+      "name": "name",
+      "id": "",
+      "label": "Full Name",
+      "type": "text",
+      "required": true,
+      "options": []
+    },
+    {
+      "column": "Promoter",
+      "name": "promoter",
+      "id": "promoter",
+      "label": "Select Promoter",
+      "type": "select",
+      "required": true,
+      "options": [
+        {
+          "label": "Select Promoter",
+          "value": ""
+        },
+        {
+          "label": "Promoter-1",
+          "value": "Promoter-1"
+        },
+        {
+          "label": "Promoter-2",
+          "value": "Promoter-2"
+        },
+        {
+          "label": "Promoter-3",
+          "value": "Promoter-3"
+        },
+        {
+          "label": "Promoter-4",
+          "value": "Promoter-4"
+        },
+        {
+          "label": "Promoter-5",
+          "value": "Promoter-5"
+        },
+        {
+          "label": "Promoter-6",
+          "value": "Promoter-6"
+        },
+        {
+          "label": "Promoter-7",
+          "value": "Promoter-7"
+        },
+        {
+          "label": "Promoter-8",
+          "value": "Promoter-8"
+        },
+        {
+          "label": "Promoter-9",
+          "value": "Promoter-9"
+        },
+        {
+          "label": "Promoter-10",
+          "value": "Promoter-10"
+        },
+        {
+          "label": "Promoter-11",
+          "value": "Promoter-11"
+        },
+        {
+          "label": "Promoter-12",
+          "value": "Promoter-12"
+        },
+        {
+          "label": "Promoter-13",
+          "value": "Promoter-13"
+        },
+        {
+          "label": "Promoter-14",
+          "value": "Promoter-14"
+        },
+        {
+          "label": "Promoter-15",
+          "value": "Promoter-15"
+        },
+        {
+          "label": "Promoter-16",
+          "value": "Promoter-16"
+        },
+        {
+          "label": "Promoter-17",
+          "value": "Promoter-17"
+        },
+        {
+          "label": "Promoter-18",
+          "value": "Promoter-18"
+        },
+        {
+          "label": "Promoter-19",
+          "value": "Promoter-19"
+        },
+        {
+          "label": "Promoter-20",
+          "value": "Promoter-20"
+        },
+        {
+          "label": "Promoter-21",
+          "value": "Promoter-21"
+        },
+        {
+          "label": "Promoter-22",
+          "value": "Promoter-22"
+        },
+        {
+          "label": "Promoter-23",
+          "value": "Promoter-23"
+        },
+        {
+          "label": "Promoter-24",
+          "value": "Promoter-24"
+        },
+        {
+          "label": "Promoter-25",
+          "value": "Promoter-25"
+        },
+        {
+          "label": "Promoter-26",
+          "value": "Promoter-26"
+        },
+        {
+          "label": "Promoter-27",
+          "value": "Promoter-27"
+        },
+        {
+          "label": "Promoter-28",
+          "value": "Promoter-28"
+        },
+        {
+          "label": "Promoter-29",
+          "value": "Promoter-29"
+        },
+        {
+          "label": "Promoter-30",
+          "value": "Promoter-30"
+        }
+      ]
+    },
+    {
+      "column": "Age",
+      "name": "qst_0",
+      "id": "",
+      "label": "1. Age",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Age< 50 years",
+          "value": "21-0-0"
+        },
+        {
+          "label": "Age > 50 years",
+          "value": "21-1-1"
+        }
+      ]
+    },
+    {
+      "column": "Gender",
+      "name": "qst_1",
+      "id": "",
+      "label": "2. Gender",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Male",
+          "value": "22-0-1"
+        },
+        {
+          "label": "Female",
+          "value": "22-1-1"
+        },
+        {
+          "label": "Others",
+          "value": "22-2-1"
+        }
+      ]
+    },
+    {
+      "column": "Both_Legs_Swelling",
+      "name": "qst_2",
+      "id": "",
+      "label": "3 A. Do you have swelling in both legs.",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "23-1"
+        },
+        {
+          "label": "No",
+          "value": "23-0"
+        }
+      ]
+    },
+    {
+      "column": "Evening_Swelling",
+      "name": "qst_3",
+      "id": "",
+      "label": "3 B. Does your swelling in legs get worsen in the evening.",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "24-1"
+        },
+        {
+          "label": "No",
+          "value": "24-0"
+        }
+      ]
+    },
+    {
+      "column": "Body_Swelling",
+      "name": "qst_4",
+      "id": "",
+      "label": "4. Do you have swelling all over the body.",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "25-1"
+        },
+        {
+          "label": "No",
+          "value": "25-0"
+        }
+      ]
+    },
+    {
+      "column": "Morning_Face_Swelling",
+      "name": "qst_5",
+      "id": "",
+      "label": "5. Do you have swelling in face during morning.",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "26-1"
+        },
+        {
+          "label": "No",
+          "value": "26-0"
+        }
+      ]
+    },
+    {
+      "column": "Breathing_Difficulty",
+      "name": "qst_6",
+      "id": "",
+      "label": "6 A. Do you have breathing difficulty.",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "27-1"
+        },
+        {
+          "label": "No",
+          "value": "27-0"
+        }
+      ]
+    },
+    {
+      "column": "Breathing_Lying_Down",
+      "name": "qst_7",
+      "id": "",
+      "label": "6 B. Do you have breathing difficulty while lying down.",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "28-1"
+        },
+        {
+          "label": "No",
+          "value": "28-0"
+        }
+      ]
+    },
+    {
+      "column": "Breathing_Walking",
+      "name": "qst_8",
+      "id": "",
+      "label": "6 C. Do you have breathing difficulty walking.",
+      "type": "radio",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "29-1"
+        },
+        {
+          "label": "No",
+          "value": "29-0"
+        }
+      ]
+    },
+    {
+      "column": "Clinical_Conditions",
+      "name": "qst_9[]",
+      "id": "",
+      "label": "7. Are you under treatment for any of the clinical condition mention below.",
+      "type": "checkbox",
+      "required": false,
+      "options": [
+        {
+          "label": "Diabetes",
+          "value": "30-0-1"
+        },
+        {
+          "label": "High Blood pressure",
+          "value": "30-1-1"
+        },
+        {
+          "label": "High Cholesterol",
+          "value": "30-2-1"
+        },
+        {
+          "label": "Anaemic",
+          "value": "30-3-1"
+        }
+      ]
+    },
+    {
+      "column": "Past_Disorders",
+      "name": "qst_10[]",
+      "id": "",
+      "label": "8. Are you currently suffering from or have in the past with the following disorders?",
+      "type": "checkbox",
+      "required": false,
+      "options": [
+        {
+          "label": "Liver disease",
+          "value": "121-0-1"
+        },
+        {
+          "label": "Kidney disease",
+          "value": "121-1-1"
+        },
+        {
+          "label": "Endocrine disease (e.g.Thyroid disease)",
+          "value": "121-2-1"
+        }
+      ]
+    },
+    {
+      "column": "Consent",
+      "name": "",
+      "id": "checkbox",
+      "label": "I Consent, View more.",
+      "type": "checkbox",
+      "required": true,
+      "options": [
+        {
+          "label": "I Consent, View more.",
+          "value": "on"
+        }
+      ]
+    }
+  ]
+}
