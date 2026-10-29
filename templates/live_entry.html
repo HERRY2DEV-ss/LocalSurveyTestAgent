@@ -1,4 +1,5 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Live Entry</title></head>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Live Entry</title>  <link rel="stylesheet" href="{{ url_for('static', filename='glass.css') }}">
+</head>
 <body><main><p><a href="/">Dashboard</a></p><h1>Live Entry</h1>
 <p>Upload a workbook, inspect its columns, and run a live-page dry validation. Eligible rows require review and explicit authorization before live submission.</p>
 {% with messages = get_flashed_messages() %}{% for message in messages %}<p role="alert">{{ message }}</p>{% endfor %}{% endwith %}
