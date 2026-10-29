@@ -1,10 +1,88 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Live Entry</title>  <link rel="stylesheet" href="{{ url_for('static', filename='glass.css') }}">
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Entry · Data Transfer Report</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='glass.css') }}">
+  <style>
+    .page{max-width:1240px;margin:28px auto;padding:0 18px 36px}
+    .panel{margin:18px 0;padding:22px;border-radius:16px}
+    .filters{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;align-items:end}
+    label{display:block;font-size:.9rem;font-weight:600;margin-bottom:6px}
+    input{box-sizing:border-box;width:100%;min-height:42px;padding:10px;border:1px solid #cbd5e1;border-radius:9px;font:inherit}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:12px}
+    .stat{padding:16px;border:1px solid rgba(148,163,184,.28);border-radius:13px;background:rgba(255,255,255,.48)}
+    .stat small{display:block;opacity:.76;margin-bottom:7px}
+    .stat strong{font-size:1.55rem;overflow-wrap:anywhere}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:850px}
+    th,td{text-align:left;padding:12px;border-bottom:1px solid rgba(148,163,184,.3);vertical-align:top}
+    th{font-size:.82rem;white-space:nowrap}
+    .muted{opacity:.76;font-size:.9rem;line-height:1.5}
+    .btn{display:inline-block;padding:9px 12px;border-radius:9px;text-decoration:none}
+    @media(max-width:760px){.filters,.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.page{margin-top:14px}.panel{padding:15px}}
+    @media(max-width:440px){.filters,.stats{grid-template-columns:1fr}}
+  </style>
 </head>
-<body><main><p><a href="/">Dashboard</a></p><h1>Live Entry</h1>
-<p>Upload a workbook, inspect its columns, and run a live-page dry validation. Eligible rows require review and explicit authorization before live submission.</p>
-{% with messages = get_flashed_messages() %}{% for message in messages %}<p role="alert">{{ message }}</p>{% endfor %}{% endwith %}
-<form method="post" action="{{ url_for('live_batches.upload') }}" enctype="multipart/form-data">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label for="workbook">Upload Excel (.xlsx)</label> <input id="workbook" type="file" name="workbook" accept=".xlsx" required>
-<button type="submit">Upload Excel</button></form>
-<h2>Saved batches</h2><ul>{% for batch in batches %}<li><a href="{{ url_for('live_batches.detail', batch_id=batch.id) }}">{{ batch.filename }}</a> — {{ batch.created_at }}</li>{% else %}<li>No batches uploaded.</li>{% endfor %}</ul></main></body></html>
+<body>
+<main class="page">
+  <p><a href="/">Dashboard</a> · <a href="/automation">Form browser</a> · <a href="/history">Browser run history</a></p>
+  <section class="panel">
+    <h1>Data Transfer Report</h1>
+    <p class="muted">Per uploaded Excel file, see how many data rows were loaded, validated, had a submission attempt, were confirmed submitted, failed, or remain unknown. The report filters by the file's upload date.</p>
+    <form method="post" action="{{ url_for('live_batches.upload') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="workbook">Upload Excel (.xlsx)</label>
+      <input id="workbook" type="file" name="workbook" accept=".xlsx" required>
+      <button type="submit">Upload Excel</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Summary for selected dates</h2>
+    <div class="stats">
+      <div class="stat"><small>Files</small><strong>{{ totals.files or 0 }}</strong></div>
+      <div class="stat"><small>Data rows loaded</small><strong>{{ totals.total_rows or 0 }}</strong></div>
+      <div class="stat"><small>Validated rows</small><strong>{{ totals.validated_rows or 0 }}</strong></div>
+      <div class="stat"><small>Submission attempts</small><strong>{{ totals.attempted_rows or 0 }}</strong></div>
+      <div class="stat"><small>Confirmed submitted</small><strong>{{ totals.submitted_rows or 0 }}</strong></div>
+      <div class="stat"><small>Failed rows</small><strong>{{ totals.failed_rows or 0 }}</strong></div>
+      <div class="stat"><small>Unknown outcome</small><strong>{{ totals.unknown_rows or 0 }}</strong></div>
+    </div>
+    <p class="muted">Important: “Submission attempts” means the agent recorded an attempt; it does not by itself prove the remote website accepted the data. “Confirmed submitted” counts rows whose local status is SUBMITTED. Unknown outcomes should be checked on the target website before retrying.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Filter files by upload date</h2>
+    <form method="get" class="filters">
+      <div><label for="from_date">From date</label><input id="from_date" type="date" name="from_date" value="{{ from_date }}"></div>
+      <div><label for="to_date">To date</label><input id="to_date" type="date" name="to_date" value="{{ to_date }}"></div>
+      <div><label for="filename">File name</label><input id="filename" name="filename" value="{{ filename }}" placeholder="Search filename"></div>
+      <div class="actions"><button type="submit">Apply filters</button><a class="btn" href="{{ url_for('live_batches.index') }}">Clear</a></div>
+    </form>
+  </section>
+
+  {% with messages = get_flashed_messages() %}{% for message in messages %}<p role="alert">{{ message }}</p>{% endfor %}{% endwith %}
+  <section class="panel">
+    <h2>File-wise row report</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>File</th><th>Uploaded</th><th>Rows loaded</th><th>Validated</th><th>Submission attempts</th><th>Confirmed submitted</th><th>Failed</th><th>Unknown</th><th>Details</th></tr></thead>
+      <tbody>
+      {% for batch in batches %}
+        <tr>
+          <td>{{ batch.filename }}</td><td>{{ batch.created_at }}</td><td>{{ batch.total_rows or 0 }}</td>
+          <td>{{ batch.validated_rows or 0 }}</td><td>{{ batch.attempted_rows or 0 }}</td>
+          <td>{{ batch.submitted_rows or 0 }}</td><td>{{ batch.failed_rows or 0 }}</td><td>{{ batch.unknown_rows or 0 }}</td>
+          <td><a href="{{ url_for('live_batches.detail', batch_id=batch.id) }}">Open rows</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9">No uploaded files match these filters.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+</main>
+</body>
+</html>
