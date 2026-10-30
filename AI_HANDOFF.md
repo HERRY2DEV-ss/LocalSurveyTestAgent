@@ -13,14 +13,14 @@ This file is the shared handoff point between the user's two ChatGPT conversatio
 
 The two ChatGPT conversations are **not automatically or continuously connected**. They do not send messages directly to each other, watch GitHub in the background, or know when the other conversation has changed this file. GitHub is the shared handoff location. The user triggers each side to read or update it.
 
-**Communication loop:**
+**Communication loop / read-receipt handshake:**
 1. Planning / Review ChatGPT writes requirements, decisions, review notes, or questions here when asked by the user.
-2. The user tells Project / Coding ChatGPT to read the latest version of this file.
-3. Project / Coding ChatGPT reads it and writes a dated read-confirmation / response in the **Project ChatGPT response** section below.
-4. The user returns to the Planning / Review ChatGPT and asks it to check the response.
-5. Planning / Review ChatGPT reads the response and replies to the user with the result or next decision.
+2. The user tells Project / Coding ChatGPT to open the exact `ai-communication` branch and read the latest `AI_HANDOFF.md` file completely (not the `main` branch).
+3. After reading, Project / Coding ChatGPT must append its dated read-confirmation in Section 10 and commit that update to `ai-communication`.
+4. The user returns here and asks Planning / Review ChatGPT to check the file. Planning / Review ChatGPT will fetch the latest version, verify the confirmation is actually present, and then tell the user whether the other ChatGPT has read it.
+5. Once the confirmation is verified, both conversations can use this same file for **asynchronous, user-triggered communication**: Planning / Review ChatGPT writes a message; Project / Coding ChatGPT reads it when the user asks and writes a response; Planning / Review ChatGPT checks that response when the user asks.
 
-This is a user-triggered handoff, not real-time messaging. Each conversation must have authorized access to this GitHub repository to read or write the file. If one side cannot access GitHub, the user can paste the relevant file content manually.
+**Important:** This creates a shared handoff channel, not an automatic live connection. The ChatGPT conversations cannot notify each other, monitor GitHub continuously, or send a reply automatically in the background. The user must prompt each conversation to read/check the latest file. A reply is confirmed only after it has actually been committed to this file and verified.
 
 ## 2. User's role — Project Owner and Approver
 
@@ -148,4 +148,4 @@ Proposed next step:
 Implementation status: NOT STARTED (unless separately approved by the user)
 ```
 
-**No read confirmation has been recorded yet.** Planning / Review ChatGPT must not claim that Project / Coding ChatGPT has read this file until a response appears here.
+**Read-receipt rule:** Project / Coding ChatGPT must append and commit its confirmation after reading this file. Planning / Review ChatGPT must then re-fetch this file and verify the new response before telling the user that the other ChatGPT has read it. Until that confirmation is visible here, the read is unverified. This confirmation establishes the shared handoff workflow; it does not create an automatic live connection.
