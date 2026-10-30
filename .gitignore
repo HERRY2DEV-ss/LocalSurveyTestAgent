@@ -4,15 +4,13 @@ test_submissions.sqlite3
 .env
 .app-secret-key
 
+# Local browser binaries and generated artifacts
 .playwright-browsers/
-LocalSurveyTestAgent/
+*.zip
 live-*.png
+sample_report.xlsx
+
+# Local databases and secrets
 *.sqlite3
-*.db
 .env
-.env.*
-!.env.example
 .app-secret-key
-artifacts/
-__pycache__/
-*.py[cod]

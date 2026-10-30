@@ -1,9 +1,160 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Live Entry</title></head>
-<body><main><p><a href="/">Dashboard</a></p><h1>Live Entry</h1>
-<p>Upload a workbook, inspect its columns, and run a live-page dry validation. Eligible rows require review and explicit authorization before live submission.</p>
-{% with messages = get_flashed_messages() %}{% for message in messages %}<p role="alert">{{ message }}</p>{% endfor %}{% endwith %}
-<form method="post" action="{{ url_for('live_batches.upload') }}" enctype="multipart/form-data">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label for="workbook">Upload Excel (.xlsx)</label> <input id="workbook" type="file" name="workbook" accept=".xlsx" required>
-<button type="submit">Upload Excel</button></form>
-<h2>Saved batches</h2><ul>{% for batch in batches %}<li><a href="{{ url_for('live_batches.detail', batch_id=batch.id) }}">{{ batch.filename }}</a> — {{ batch.created_at }}</li>{% else %}<li>No batches uploaded.</li>{% endfor %}</ul></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Entry · Data Transfer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='glass.css') }}">
+  <style>
+    :root{--ink:#18243a;--muted:#68758a;--line:#e3eaf4;--blue:#315fce;--pale:#f3f7ff}
+    body{color:var(--ink)}
+    .page{max-width:1120px;margin:28px auto;padding:0 20px 44px}
+    .navline{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:20px;font-size:.9rem;color:var(--muted)}
+    .navline a{color:#315fce;text-decoration:none;font-weight:650}
+    .hero{position:relative;overflow:hidden;padding:28px;border-radius:22px;background:linear-gradient(125deg,#142d50,#315fce 72%,#7c8ee8);color:#fff;box-shadow:0 18px 40px #24477b24}
+    .hero:after{content:"";position:absolute;width:240px;height:240px;border:1px solid #ffffff24;border-radius:50%;right:-55px;top:-95px;box-shadow:0 0 0 30px #ffffff08,0 0 0 60px #ffffff06}
+    .hero .eyebrow{font-size:.74rem;font-weight:750;letter-spacing:.13em;text-transform:uppercase;color:#d8e5ff}
+    .hero h1{font-size:clamp(1.7rem,3vw,2.35rem);letter-spacing:-.035em;line-height:1.12;margin:10px 0}
+    .hero p{max-width:650px;color:#e1eaff;line-height:1.6;margin:0}
+    .panel{background:rgba(255,255,255,.88);border:1px solid #e0e8f3;border-radius:18px;padding:22px;box-shadow:0 8px 26px #18345b0a;margin-top:18px}
+    .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
+    h2{font-size:1.12rem;letter-spacing:-.02em;margin:0 0 6px}
+    .muted{font-size:.9rem;color:var(--muted);line-height:1.55;margin:0}
+    .upload-box{display:flex;align-items:center;gap:16px;padding:18px;border:1px dashed #a9bee2;border-radius:14px;background:linear-gradient(120deg,#f7faff,#f0f5ff);flex-wrap:wrap}
+    .upload-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px;background:#e1eaff;color:#315fce;display:grid;place-items:center;font-size:23px}
+    .upload-copy{flex:1;min-width:180px}
+    .upload-copy strong{display:block;margin-bottom:4px}
+    input{box-sizing:border-box;width:100%;min-height:42px;padding:10px 12px;border:1px solid #cbd6e6;border-radius:10px;background:#fff;color:var(--ink);font:inherit}
+    input:focus{outline:3px solid #cbdcff;border-color:#6f91e8}
+    label{display:block;font-size:.82rem;font-weight:700;margin:0 0 7px}
+    .file-input{max-width:320px}
+    button,.btn{display:inline-flex;justify-content:center;align-items:center;gap:7px;border:0;border-radius:10px;padding:11px 15px;background:linear-gradient(120deg,#315fce,#594ed0);color:#fff;font-weight:700;font:inherit;text-decoration:none;cursor:pointer;white-space:nowrap}
+    .btn.secondary{background:#edf2fb;color:#2a477a;border:1px solid #dbe5f5}
+    .filters{display:grid;grid-template-columns:1fr 1fr 1.3fr auto;gap:12px;align-items:end}
+    .filter-actions{display:flex;gap:8px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:13px}
+    table{width:100%;border-collapse:collapse;min-width:650px;background:#fff}
+    th,td{text-align:left;padding:14px 15px;border-bottom:1px solid #edf1f7;vertical-align:middle}
+    th{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:#69778d;background:#f7f9fd;white-space:nowrap}
+    tbody tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#f9fbff}
+    .filename{font-weight:700;overflow-wrap:anywhere;max-width:320px}
+    .subline{display:block;color:var(--muted);font-size:.78rem;font-weight:400;margin-top:4px}
+    .number{font-weight:750;font-variant-numeric:tabular-nums}
+    .statusline{display:flex;gap:5px;flex-wrap:wrap}
+    .chip{display:inline-block;padding:5px 8px;border-radius:20px;font-size:.75rem;font-weight:700;background:#edf2fa;color:#4c5d76}
+    .chip.good{background:#e1f6ea;color:#177044}.chip.bad{background:#fff0e8;color:#a44a22}.chip.unknown{background:#fff5d8;color:#855e05}
+    .open-link{font-weight:750;color:#315fce;text-decoration:none;white-space:nowrap}
+    .empty{padding:28px;text-align:center;color:var(--muted)}
+    .flash{padding:12px 14px;background:#fff4dc;border:1px solid #f2dda3;border-radius:12px}
+    @media(max-width:780px){.page{margin:16px auto;padding:0 13px 30px}.hero{padding:22px}.panel{padding:16px}.filters{grid-template-columns:1fr 1fr}.filter-actions{grid-column:1/-1}.upload-box{align-items:flex-start}}
+    @media(max-width:460px){.filters{grid-template-columns:1fr}.filter-actions{grid-column:auto}.file-input{max-width:none}.upload-box button{width:100%}.section-head{display:block}.section-head .btn{margin-top:10px}}
+  
+/* Dark + emerald + pink palette — no light-blue accents */
+:root{color-scheme:dark;--bg:#080b0a;--surface:#101512;--surface-2:#151d18;--line:#29382e;--ink:#edf7ef;--muted:#a1b2a5;--green:#45e08b;--green-soft:#143323;--pink:#ff6fae;--pink-soft:#351827}
+html,body{background:#080b0a!important;color:#edf7ef!important;color-scheme:dark}
+body{background:radial-gradient(ellipse at 12% 0%,#153522 0,transparent 32%),radial-gradient(ellipse at 90% 14%,#351627 0,transparent 26%),linear-gradient(155deg,#080b0a,#0d120e 55%,#100a0e)!important}
+h1,h2,h3,h4,label{color:#f0f8f1!important;letter-spacing:-.02em}
+p,.small,.muted,.note{color:#a1b2a5!important}
+.wrap,.page,main{max-width:1220px!important}
+.card,.panel,.live-overview{background:linear-gradient(145deg,rgba(17,24,19,.98),rgba(13,18,15,.98))!important;border:1px solid #29382e!important;border-radius:15px!important;box-shadow:0 14px 34px #0006!important;backdrop-filter:none!important}
+.hero{background:linear-gradient(115deg,#11271a 0%,#183322 58%,#321728 100%)!important;border:1px solid #35513d!important;border-radius:16px!important;box-shadow:0 16px 38px #0005!important}
+.hero:after{opacity:.18}
+.pill{background:#143323!important;color:#7cf0a9!important;border:1px solid #2b7d4b!important}
+input:not([type=checkbox]):not([type=radio]),textarea,select{background:#0b100d!important;color:#edf7ef!important;border:1px solid #34463a!important;border-radius:9px!important}
+input::placeholder,textarea::placeholder{color:#748579!important}
+input:focus,textarea:focus,select:focus{outline:2px solid #45e08b!important;outline-offset:2px;box-shadow:0 0 0 4px #45e08b18!important}
+button,.btn,button[type=submit]{background:linear-gradient(110deg,#1b9d59,#36c977)!important;color:#06140b!important;border:1px solid #45e08b!important;border-radius:9px!important;box-shadow:0 5px 16px #45e08b14!important}
+button:hover,.btn:hover{background:linear-gradient(110deg,#2fc875,#ff6fae)!important;transform:translateY(-1px)}
+button.secondary,.secondary,.btn.secondary{background:#1a211c!important;color:#e4f1e7!important;border:1px solid #39483d!important}
+.warning,.flash,.message{background:#301d27!important;border:1px solid #75405a!important;color:#ffb4d2!important}
+table,.table-wrap{background:#0b100d!important;border-color:#29382e!important}
+th{background:#18221b!important;color:#b8d2bf!important;border-color:#29382e!important}
+td{color:#dce9df!important;border-color:#253129!important}
+tbody tr:hover{background:#17231a!important}
+a,.open-link{color:#65e99a!important}
+a:hover,.open-link:hover{color:#ff8fbd!important}
+.day-card{background:linear-gradient(145deg,#151e17,#101611)!important;border-color:#304236!important;color:#edf7ef!important}
+.day-card:hover{border-color:#45e08b!important;box-shadow:0 10px 28px #45e08b12!important}
+.day-meta,.day-foot{color:#a1b2a5!important}.day-foot{border-color:#29382e!important}.today-tag{background:#143323!important;color:#83f3ad!important}
+.empty-day{border-color:#3a4b3e!important;color:#a1b2a5!important}
+.ops-ribbon{position:relative;isolation:isolate;display:flex;align-items:center;gap:12px;overflow:hidden;margin:0 0 18px;padding:11px 14px;border:1px solid #304236;border-radius:11px;background:#0d130f;color:#b1c5b6;font:600 .72rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.045em}
+.ops-ribbon:before{content:"";position:absolute;z-index:-1;left:-40%;top:0;width:34%;height:100%;background:linear-gradient(90deg,transparent,#45e08b25,#ff6fae20,transparent);transform:skewX(-20deg);animation:ops-sweep 4s ease-in-out infinite}
+.ops-live-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#45e08b;box-shadow:0 0 11px #45e08b80;animation:ops-pulse 1.7s infinite}
+.ops-ribbon strong{color:#f0f8f1;font-weight:700}.ops-ribbon .ops-state{margin-left:auto;color:#ff83b8;white-space:nowrap}
+.cyber-panel{background:radial-gradient(ellipse at 100% 0%,#321627 0,transparent 34%),linear-gradient(145deg,#0b100d,#111a13 58%,#1d1018)!important;border-color:#3c4a3e!important}
+.cyber-panel .cyber-topline,.cyber-panel .cyber-log b{color:#ff7db5!important}
+.cyber-panel .cyber-dot{background:#ff6fae!important;box-shadow:0 0 13px #ff6fae!important}
+.cyber-panel .cyber-mode,.cyber-panel .cyber-tag{border-color:#75405a!important;color:#ff9ac5!important;background:#351827!important}
+.cyber-panel .cyber-emblem{border-color:#75405a!important;color:#ff6fae!important;background:radial-gradient(circle,#351827,#171017)!important}
+.cyber-panel .cyber-alert{border-color:#75405a!important;background:linear-gradient(90deg,#301d27,#171117)!important}
+.cyber-panel .cyber-alert strong,.cyber-panel .cyber-alert-icon{color:#ff8fbd!important}
+.cyber-panel .cyber-stat{background:#0d130f!important;border-color:#304236!important}
+.cyber-panel .cyber-stat strong{color:#7cf0a9!important}
+.cyber-panel .cyber-terminal{background:#070b08!important;border-color:#304236!important}
+.cyber-panel .cyber-terminal-head{background:#141d16!important;border-color:#304236!important}
+.cyber-panel .cyber-terminal-head i{background:#45e08b!important;box-shadow:0 0 9px #45e08b!important}
+.cyber-panel .cyber-copy,.cyber-panel .cyber-footnote{color:#a1b2a5!important}
+.cyber-panel .cyber-actions button{background:linear-gradient(110deg,#1b9d59,#ff6fae)!important;border:1px solid #ff8fbd!important;color:#08110b!important;box-shadow:0 0 22px #ff6fae18!important}
+.cyber-panel.cyber-active .cyber-dot{background:#45e08b!important;box-shadow:0 0 13px #45e08b!important}
+.cyber-panel.cyber-active .cyber-alert{border-color:#2b7d4b!important;background:linear-gradient(90deg,#143323,#111a13)!important}
+.cyber-panel.cyber-active .cyber-alert strong,.cyber-panel.cyber-active .cyber-alert-icon{color:#7cf0a9!important}
+@keyframes ops-sweep{0%{left:-40%}70%,100%{left:120%}}@keyframes ops-pulse{50%{opacity:.35}}
+@media(max-width:600px){.ops-ribbon{font-size:.62rem;gap:8px;flex-wrap:wrap}.ops-ribbon .ops-state{margin-left:15px}.wrap,.page,main{width:calc(100% - 24px)!important;padding-top:14px!important}}
+@media(prefers-reduced-motion:reduce){.ops-ribbon:before,.ops-live-dot{animation:none!important}}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="ops-ribbon" role="status"><span class="ops-live-dot"></span><span><strong>LOCAL OPS CONSOLE</strong> / SANDBOX ENVIRONMENT</span><span class="ops-state">● SIMULATION READY</span></div>
+  <nav class="navline"><a href="/">← Dashboard</a><span>/</span><span>Live Entry</span><span>/</span><a href="/history">Browser history</a></nav>
+  <header class="hero">
+    <div class="eyebrow">Spreadsheet workspace</div>
+    <h1>Live Entry</h1>
+    <p>Upload a workbook, review validation progress, and open a batch only when you need its row-level details.</p>
+  </header>
+
+  {% with messages = get_flashed_messages() %}{% for message in messages %}<p class="flash" role="alert">{{ message }}</p>{% endfor %}{% endwith %}
+
+  <section class="panel">
+    <div class="section-head"><div><h2>Upload a spreadsheet</h2><p class="muted">Excel workbook (.xlsx), up to 10 MB. A preview and validation status will be available after upload.</p></div></div>
+    <form method="post" action="{{ url_for('live_batches.upload') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="upload-box">
+        <div class="upload-icon" aria-hidden="true">↥</div>
+        <div class="upload-copy"><strong>Choose an Excel file</strong><span class="muted">Your existing workbook columns are kept intact.</span></div>
+        <div class="file-input"><label for="workbook">Workbook file</label><input id="workbook" type="file" name="workbook" accept=".xlsx" required></div>
+        <button type="submit">Upload workbook <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><div><h2>Uploaded files</h2><p class="muted">Search by date or filename. Open a file to see detailed row statuses.</p></div><span class="chip">{{ totals.files or 0 }} files</span></div>
+    <form method="get" class="filters">
+      <div><label for="from_date">From date</label><input id="from_date" type="date" name="from_date" value="{{ from_date }}"></div>
+      <div><label for="to_date">To date</label><input id="to_date" type="date" name="to_date" value="{{ to_date }}"></div>
+      <div><label for="filename">Filename</label><input id="filename" name="filename" value="{{ filename }}" placeholder="Search filenames"></div>
+      <div class="filter-actions"><button type="submit">Filter</button><a class="btn secondary" href="{{ url_for('live_batches.index') }}">Reset</a></div>
+    </form>
+    <div style="height:18px"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Workbook</th><th>Rows</th><th>Progress snapshot</th><th></th></tr></thead>
+      <tbody>
+      {% for batch in batches %}
+        <tr>
+          <td><span class="filename">{{ batch.filename }}</span><span class="subline">{{ batch.created_at }}</span></td>
+          <td><span class="number">{{ batch.total_rows or 0 }}</span><span class="subline">data rows</span></td>
+          <td><div class="statusline"><span class="chip good">{{ batch.submitted_rows or 0 }} confirmed</span><span class="chip">{{ batch.validated_rows or 0 }} validated</span><span class="chip bad">{{ batch.failed_rows or 0 }} failed</span>{% if batch.unknown_rows %}<span class="chip unknown">{{ batch.unknown_rows }} unknown</span>{% endif %}</div></td>
+          <td><a class="open-link" href="{{ url_for('live_batches.detail', batch_id=batch.id) }}">Open batch →</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">No workbooks match these filters. Upload a workbook to begin.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="muted" style="margin-top:12px">“Confirmed” counts rows marked SUBMITTED in this app. Attempts or unknown outcomes are not counted as confirmed transfers.</p>
+  </section>
+</main>
+</body>
+</html>

@@ -1,5 +1,6 @@
 """Authenticated spreadsheet intake, reviewed submission, and reporting."""
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from io import BytesIO
 import hashlib
 import json
@@ -196,9 +197,95 @@ def get_batch(batch_id):
 
 @live_batches.route('/live-entry')
 def index():
+    from_date = request.args.get('from_date', '').strip()
+    to_date = request.args.get('to_date', '').strip()
+    filename = request.args.get('filename', '').strip()
+    clauses, params = [], []
+    if from_date:
+        clauses.append('substr(b.created_at, 1, 10) >= ?')
+        params.append(from_date)
+    if to_date:
+        clauses.append('substr(b.created_at, 1, 10) <= ?')
+        params.append(to_date)
+    if filename:
+        clauses.append('b.filename LIKE ?')
+        params.append(f'%{filename}%')
+    where = (' WHERE ' + ' AND '.join(clauses)) if clauses else ''
     with db() as con:
-        batches = con.execute('SELECT id, filename, created_at FROM live_batches ORDER BY id DESC').fetchall()
-    return render_template('live_entry.html', batches=batches, fields=FIELDS)
+        batches = con.execute(f'''
+            SELECT b.id, b.filename, b.created_at,
+                   COUNT(r.row_number) AS total_rows,
+                   SUM(CASE WHEN r.status='VALIDATED' THEN 1 ELSE 0 END) AS validated_rows,
+                   SUM(CASE WHEN r.attempted_submit=1 OR r.status IN ('SUBMITTING','SUBMITTED','UNKNOWN') THEN 1 ELSE 0 END) AS attempted_rows,
+                   SUM(CASE WHEN r.status='SUBMITTED' THEN 1 ELSE 0 END) AS submitted_rows,
+                   SUM(CASE WHEN r.status='FAILED' THEN 1 ELSE 0 END) AS failed_rows,
+                   SUM(CASE WHEN r.status='UNKNOWN' THEN 1 ELSE 0 END) AS unknown_rows
+            FROM live_batches b
+            LEFT JOIN live_batch_rows r ON r.batch_id=b.id
+            {where}
+            GROUP BY b.id
+            ORDER BY b.id DESC
+        ''', params).fetchall()
+        totals = con.execute(f'''
+            SELECT COUNT(DISTINCT b.id) AS files,
+                   COUNT(r.row_number) AS total_rows,
+                   SUM(CASE WHEN r.status='VALIDATED' THEN 1 ELSE 0 END) AS validated_rows,
+                   SUM(CASE WHEN r.attempted_submit=1 OR r.status IN ('SUBMITTING','SUBMITTED','UNKNOWN') THEN 1 ELSE 0 END) AS attempted_rows,
+                   SUM(CASE WHEN r.status='SUBMITTED' THEN 1 ELSE 0 END) AS submitted_rows,
+                   SUM(CASE WHEN r.status='FAILED' THEN 1 ELSE 0 END) AS failed_rows,
+                   SUM(CASE WHEN r.status='UNKNOWN' THEN 1 ELSE 0 END) AS unknown_rows
+            FROM live_batches b
+            LEFT JOIN live_batch_rows r ON r.batch_id=b.id
+            {where}
+        ''', params).fetchone()
+    return render_template('live_entry.html', batches=batches, fields=FIELDS,
+                           from_date=from_date, to_date=to_date, filename=filename, totals=totals)
+
+
+@live_batches.route('/live-entry/day/<day>')
+def day_summary(day):
+    try:
+        selected_day = datetime.strptime(day, '%Y-%m-%d').date()
+    except ValueError:
+        abort(404)
+    india = ZoneInfo('Asia/Kolkata')
+    with db() as con:
+        rows = con.execute("""
+            SELECT b.id AS batch_id, b.filename, b.created_at, r.status
+            FROM live_batches b
+            LEFT JOIN live_batch_rows r ON r.batch_id=b.id
+            ORDER BY b.created_at DESC
+        """).fetchall()
+    files = {}
+    totals = {'files': 0, 'rows': 0, 'submitted': 0, 'validated': 0, 'failed': 0, 'unknown': 0}
+    for row in rows:
+        try:
+            row_day = datetime.fromisoformat(row['created_at']).astimezone(india).date()
+        except (TypeError, ValueError):
+            try:
+                row_day = datetime.strptime(str(row['created_at'])[:10], '%Y-%m-%d').date()
+            except ValueError:
+                continue
+        if row_day != selected_day:
+            continue
+        item = files.setdefault(row['batch_id'], {
+            'id': row['batch_id'], 'filename': row['filename'], 'created_at': row['created_at'],
+            'rows': 0, 'submitted': 0, 'validated': 0, 'failed': 0, 'unknown': 0,
+        })
+        if row['status'] is not None:
+            item['rows'] += 1
+            item['submitted'] += int(row['status'] == 'SUBMITTED')
+            item['validated'] += int(row['status'] == 'VALIDATED')
+            item['failed'] += int(row['status'] == 'FAILED')
+            item['unknown'] += int(row['status'] == 'UNKNOWN')
+    file_list = sorted(files.values(), key=lambda item: item['created_at'], reverse=True)
+    totals['files'] = len(file_list)
+    for item in file_list:
+        for key in ('rows', 'submitted', 'validated', 'failed', 'unknown'):
+            totals[key] += item[key]
+    return render_template('live_entry_day.html', day=selected_day,
+                           day_label=selected_day.strftime('%A, %d %B %Y'),
+                           files=file_list, totals=totals)
 
 
 @live_batches.route('/live-entry/upload', methods=['POST'])
