@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in - Local Test Agent</title>
+  <style>
+    body{font:16px Arial,sans-serif;background:#f3f5f8;color:#172033;margin:0}
+    main{max-width:420px;margin:12vh auto;background:white;padding:28px;border:1px solid #dce2eb;border-radius:14px}
+    label{display:block;font-weight:bold;margin:16px 0 7px}
+    input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #b9c4d4;border-radius:8px;font:inherit}
+    button{margin-top:16px;padding:12px 16px;border:0;border-radius:8px;background:#1e5aa6;color:white;font-weight:bold;cursor:pointer}
+    .message{background:#fff5d8;padding:10px;border-radius:8px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Local Test Agent</h1>
+    <p>Sign in to the dashboard running on this computer.</p>
+    {% with messages = get_flashed_messages() %}
+      {% for message in messages %}<p class="message">{{ message }}</p>{% endfor %}
+    {% endwith %}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="password">Dashboard password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <button type="submit">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>

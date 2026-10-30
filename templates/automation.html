@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Local form automation</title>
+  <style>
+    :root{font:16px Arial,sans-serif;color:#172033;background:#f3f5f8}
+    body{margin:0}.wrap{max-width:1080px;margin:26px auto;padding:0 18px}
+    .card{background:white;border:1px solid #dce2eb;border-radius:14px;padding:20px;margin:16px 0}
+    .warning{background:#fff5d8;border:1px solid #f0d991;padding:12px;border-radius:9px;line-height:1.5}
+    label{display:block;font-weight:bold;margin:12px 0 6px}
+    input,select{box-sizing:border-box;padding:10px;border:1px solid #b9c4d4;border-radius:7px;font:inherit}
+    input[type=text],input[type=url]{width:100%}button,.link{display:inline-block;border:0;border-radius:8px;padding:10px 14px;background:#1e5aa6;color:white;font-weight:bold;text-decoration:none;cursor:pointer;margin:8px 8px 0 0}
+    button.secondary{background:#e7edf5;color:#23344d}.row{display:flex;gap:14px;align-items:end;flex-wrap:wrap}
+    .row>div{flex:1;min-width:190px}.small{color:#5b677a;font-size:14px;line-height:1.5}
+    .field{border:1px solid #dce2eb;border-radius:9px;padding:12px;margin:10px 0}
+    .field h3{margin:0 0 6px}.options{font-size:14px;color:#42536a;white-space:pre-wrap}
+    .field-control{max-width:420px}.state{font-weight:bold}.error{color:#a12727}.pass{color:#12653c}
+    table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;padding:9px;border-bottom:1px solid #e1e6ee;vertical-align:top}th{background:#244062;color:#fff}
+    .muted{color:#64748b}pre{white-space:pre-wrap;overflow-wrap:anywhere}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <p><a class="link" href="/">Dashboard</a><a class="link" href="/history">Run history</a></p>
+  <h1>Local form browser test</h1>
+  <div class="warning"><b>Live submission disabled:</b> the designated live survey can be inspected and reviewed; live submission is blocked. Choose language and consent in the visible browser, then refresh questionnaire fields. Consent must be handled manually.</div>
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}<p class="warning">{{ message }}</p>{% endfor %}
+  {% endwith %}
+
+  <section class="card">
+    <h2>1. Open a local test page</h2>
+    <label for="target-url">Target Website URL</label>
+    <input id="target-url" type="url" value="{{ default_target_url }}" autocomplete="url">
+    <div class="row">
+      <button id="open-browser">Open Website in Visible Browser</button>
+      <button id="stop-browser" class="secondary">Stop Browser</button>
+      <button id="detect-fields" class="secondary">Detect / Refresh Fields</button>
+      <div><b>Status:</b> <span id="browser-status">{{ 'OPEN' if browser_status.open else 'STOPPED' }}</span><br><span class="small" id="browser-url">{{ browser_status.url or 'No page open' }}</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Detected fields and answer rules</h2>
+    <p class="small">Native fields and their actual options are read from the open local page. Password/secret fields are excluded. Use Manual for consent and enter consent directly in the visible browser. Required fields cannot be skipped.</p>
+    <p id="inspection-meta" class="small">Fields have not been detected yet.</p>
+    <div id="field-list"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Test names queue (saved in this browser only)</h2>
+    <label for="queue-input">Enter names, one per line</label>
+    <textarea id="queue-input" rows="4" style="box-sizing:border-box;width:100%;padding:10px;border:1px solid #b9c4d4;border-radius:7px;font:inherit"></textarea>
+    <button id="save-queue">Save / replace queue</button>
+    <button id="add-queue" class="secondary">Add names to queue</button>
+    <button id="clear-queue" class="secondary">Delete local queue</button>
+    <p id="queue-counts" class="small"></p>
+    <div id="queue-list"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. Preview, fill, validate, and review</h2>
+    <div class="row">
+      <div><label for="test-name">Test name (must be entered manually)</label><input id="test-name" type="text" maxlength="100" autocomplete="off"></div>
+      <div><label for="random-seed">Optional random seed</label><input id="random-seed" type="text" autocomplete="off"></div>
+    </div>
+    <button id="preview">Preview Selections</button>
+    <button id="apply" class="secondary" disabled>Apply and Validate</button>
+    <button id="submit" class="secondary" disabled>Submit This Reviewed Local Test</button>
+    <div id="run-status" class="state"></div>
+    <div id="results"></div>
+    <p class="small">Submission happens only after you click the final button. Confirmation requires the local sample success page and a matching SQLite record; a click alone is never confirmation.</p>
+  </section>
+
+  <section class="card">
+    <h2>Daily run limit</h2>
+    <p>Today: {{ daily_used }} / {{ daily_limit }} runs. Maximum configurable limit: 6 per local day. Duplicate name + target URL runs on the same day are rejected.</p>
+    <form method="post" action="/settings/daily-limit">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="daily-limit">Configured limit (1–6)</label>
+      <div class="row"><input id="daily-limit" name="daily_limit" type="number" min="1" max="6" value="{{ daily_limit }}" required><button type="submit">Save daily limit</button></div>
+    </form>
+  </section>
+</main>
+<script>
+const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+const fieldList = document.getElementById('field-list');
+let detectedFields = [];
+let currentRun = null;
+let liveRun = false;
+let reviewed = false;
+let queue = [];
+let currentQueueId = null;
+const statusEl = document.getElementById('run-status');
+const resultEl = document.getElementById('results');
+const queueStorageKey = 'local-survey-test-name-queue-v1';
+
+async function post(path, data = {}) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+    body: JSON.stringify(data)
+  });
+  const value = await response.json();
+  if (!response.ok) throw new Error(value.error || `Request failed (${response.status})`);
+  return value;
+}
+function setStatus(message, failed=false) {
+  statusEl.textContent = message;
+  statusEl.className = failed ? 'state error' : 'state pass';
+}
+function escapeText(value) {
+  const span = document.createElement('span');
+  span.textContent = value == null ? '' : String(value);
+  return span.innerHTML;
+}
+function actionDefault(field) {
+  const consent = `${field.label} ${field.name}`.toLowerCase().includes('consent');
+  return field.required || consent ? 'manual' : 'skip';
+}
+function renderFields(fields) {
+  detectedFields = fields;
+  fieldList.replaceChildren();
+  if (!fields.length) {
+    fieldList.textContent = 'No standard form fields detected. The page may be empty, protected, or use custom controls.';
+    return;
+  }
+  for (const field of fields) {
+    const box = document.createElement('div');
+    box.className = 'field';
+    const title = document.createElement('h3');
+    title.textContent = `${field.label} — ${field.type}`;
+    box.append(title);
+    const info = document.createElement('div');
+    info.className = 'small';
+    info.textContent = `${field.element} | name=${field.name || '—'} | id=${field.id || '—'} | ${field.required ? 'Required' : 'Optional'} | ${field.editable ? 'Editable' : 'Not editable'} | ${field.valid ? 'Currently valid' : field.validation_message}`;
+    box.append(info);
+    const optionSummary = document.createElement('div');
+    optionSummary.className = 'options';
+    optionSummary.textContent = field.options.length
+      ? 'Available options: ' + field.options.map(o => `${o.label} (${o.value})${o.selected ? ' [selected]' : ''}`).join(', ')
+      : `Current value: ${field.value == null ? 'Not displayed' : JSON.stringify(field.value)}`;
+    box.append(optionSummary);
+    const row = document.createElement('div');
+    row.className = 'row field-control';
+    const actionLabel = document.createElement('label');
+    actionLabel.textContent = 'Rule';
+    const action = document.createElement('select');
+    action.dataset.role = 'action';
+    for (const [value, text] of [['manual','Manual entry / consent'],['value','Use configured value'],['random','Random detected option'],['skip','Skip optional field']]) {
+      const option = document.createElement('option');
+      option.value = value; option.textContent = text; action.append(option);
+    }
+    action.value = actionDefault(field);
+    actionLabel.append(action);
+    row.append(actionLabel);
+    const valueLabel = document.createElement('label');
+    valueLabel.textContent = field.type === 'checkbox' ? 'Selected options' : 'Value';
+    let valueControl;
+    if (field.options.length && ['radio','select','multiselect'].includes(field.type)) {
+      valueControl = document.createElement('select');
+      if (field.type === 'multiselect') valueControl.multiple = true;
+      if (field.type !== 'multiselect') {
+        const blank = document.createElement('option'); blank.value = ''; blank.textContent = 'Choose an actual option'; valueControl.append(blank);
+      }
+      for (const option of field.options) {
+        const item = document.createElement('option'); item.value = option.value; item.textContent = `${option.label} (${option.value})`; valueControl.append(item);
+      }
+    } else if (field.type === 'checkbox' && field.options.length) {
+      valueControl = document.createElement('select'); valueControl.multiple = true;
+      for (const option of field.options) {
+        const item = document.createElement('option'); item.value = option.value; item.textContent = `${option.label} (${option.value})`; valueControl.append(item);
+      }
+    } else {
+      valueControl = document.createElement('input'); valueControl.type = 'text'; valueControl.placeholder = 'Enter a value';
+    }
+    valueControl.dataset.role = 'value';
+    valueLabel.append(valueControl);
+    row.append(valueLabel);
+    box.append(row);
+    fieldList.append(box);
+  }
+}
+function rulesFromPage() {
+  const rules = {};
+  for (const box of fieldList.querySelectorAll('.field')) {
+    const index = [...fieldList.children].indexOf(box);
+    const field = detectedFields[index];
+    const action = box.querySelector('[data-role=action]').value;
+    const control = box.querySelector('[data-role=value]');
+    const value = control.multiple ? [...control.selectedOptions].map(x => x.value) : control.value;
+    rules[field.key] = {action, value};
+  }
+  return rules;
+}
+function showResults(items) {
+  const table = document.createElement('table');
+  table.innerHTML = '<thead><tr><th>Field</th><th>Rule</th><th>Expected</th><th>Actual</th><th>Result</th><th>Error</th></tr></thead>';
+  const body = document.createElement('tbody');
+  for (const item of items) {
+    const row = document.createElement('tr');
+    for (const value of [item.label, item.reason || item.action, item.expected_labels?.length ? `${item.expected_labels.join(', ')} (${JSON.stringify(item.expected)})` : JSON.stringify(item.expected), JSON.stringify(item.actual), item.result || 'PREVIEW', item.error || '']) {
+      const cell = document.createElement('td'); cell.textContent = value == null ? '' : String(value); row.append(cell);
+    }
+    body.append(row);
+  }
+  table.append(body);
+  resultEl.replaceChildren(table);
+}
+function persistQueue() {
+  localStorage.setItem(queueStorageKey, JSON.stringify(queue));
+  renderQueue();
+}
+function renderQueue() {
+  const list = document.getElementById('queue-list');
+  list.replaceChildren();
+  const counts = {pending: 0, completed: 0, failed: 0, skipped: 0};
+  for (const item of queue) counts[item.status] = (counts[item.status] || 0) + 1;
+  document.getElementById('queue-counts').textContent =
+    `Pending: ${counts.pending} | Completed: ${counts.completed} | Failed: ${counts.failed} | Skipped: ${counts.skipped}`;
+  for (const item of queue) {
+    const row = document.createElement('div'); row.className = 'row field';
+    const name = document.createElement('input'); name.type = 'text'; name.maxLength = 100; name.value = item.name; name.setAttribute('aria-label', 'Queued test name');
+    name.addEventListener('change', () => {
+      item.name = name.value.trim();
+      if (currentQueueId === item.id) document.getElementById('test-name').value = item.name;
+      persistQueue();
+    });
+    const state = document.createElement('span'); state.className = 'state'; state.textContent = item.status;
+    const use = document.createElement('button'); use.textContent = 'Use name'; use.addEventListener('click', () => {
+      currentQueueId = item.id; document.getElementById('test-name').value = item.name; setStatus(`Selected queued name: ${item.name}`);
+    });
+    const skip = document.createElement('button'); skip.className = 'secondary'; skip.textContent = 'Mark skipped'; skip.addEventListener('click', () => {
+      if (currentQueueId === item.id) currentQueueId = null;
+      item.status = 'skipped'; persistQueue();
+    });
+    const remove = document.createElement('button'); remove.className = 'secondary'; remove.textContent = 'Remove'; remove.addEventListener('click', () => {
+      if (currentQueueId === item.id) currentQueueId = null;
+      queue = queue.filter(candidate => candidate.id !== item.id); persistQueue();
+    });
+    row.append(name, state, use, skip, remove); list.append(row);
+  }
+}
+function setQueueStatus(status) {
+  if (!currentQueueId) return;
+  const item = queue.find(candidate => candidate.id === currentQueueId);
+  if (item) { item.status = status; persistQueue(); }
+}
+function entriesFromQueueInput() {
+  return document.getElementById('queue-input').value.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
+}
+function newQueueItem(name) {
+  return {id: (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`), name, status: 'pending'};
+}
+try {
+  const saved = JSON.parse(localStorage.getItem(queueStorageKey) || '[]');
+  if (Array.isArray(saved)) queue = saved.filter(item => item && typeof item.name === 'string' && ['pending','completed','failed','skipped'].includes(item.status));
+} catch (error) {
+  localStorage.removeItem(queueStorageKey);
+}
+renderQueue();
+document.getElementById('save-queue').addEventListener('click', () => {
+  queue = entriesFromQueueInput().map(newQueueItem); currentQueueId = null; persistQueue();
+});
+document.getElementById('add-queue').addEventListener('click', () => {
+  queue.push(...entriesFromQueueInput().map(newQueueItem)); persistQueue();
+});
+document.getElementById('clear-queue').addEventListener('click', () => {
+  if (!confirm('Delete the saved local test-name queue?')) return;
+  queue = []; currentQueueId = null; localStorage.removeItem(queueStorageKey); renderQueue();
+});
+document.getElementById('test-name').addEventListener('input', (event) => {
+  const selected = queue.find(item => item.id === currentQueueId);
+  if (selected && selected.name !== event.target.value) currentQueueId = null;
+});
+document.getElementById('open-browser').addEventListener('click', async () => {
+  try {
+    const result = await post('/browser/open', {url: document.getElementById('target-url').value});
+    document.getElementById('browser-status').textContent = 'OPEN';
+    document.getElementById('browser-url').textContent = result.url;
+    currentRun = null; reviewed = false; resultEl.replaceChildren(); setStatus('Local page opened in a visible browser.');
+  } catch (error) { setStatus(error.message, true); }
+});
+document.getElementById('stop-browser').addEventListener('click', async () => {
+  try {
+    await post('/browser/stop');
+    document.getElementById('browser-status').textContent = 'STOPPED';
+    document.getElementById('browser-url').textContent = 'No page open';
+    setStatus('Browser stopped.');
+  } catch (error) { setStatus(error.message, true); }
+});
+document.getElementById('detect-fields').addEventListener('click', async () => {
+  try {
+    const data = await post('/browser/detect');
+    renderFields(data.fields);
+    document.getElementById('browser-url').textContent = data.url;
+    document.getElementById('inspection-meta').textContent = `Inspected ${data.inspection_time}; page "${data.title}". ${data.frames.length ? `${data.frames.length} frame(s) detected; frame controls are not inspected.` : 'No frames detected.'} ${data.unsupported.length ? `${data.unsupported.length} custom/unsupported widget(s) detected.` : ''}`;
+    setStatus(`${data.fields.length} fields detected.`);
+  } catch (error) { setStatus(error.message, true); }
+});
+let refreshing = false;
+setInterval(async () => {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const response = await fetch('/browser/status');
+    if (!response.ok) return;
+    const status = await response.json();
+    document.getElementById('browser-status').textContent = status.open ? 'OPEN' : 'STOPPED';
+    document.getElementById('browser-url').textContent = status.url || 'No page open';
+    if (status.fields_stale && status.open) {
+      if (reviewed) {
+        reviewed = false;
+        document.getElementById('submit').disabled = true;
+        setStatus('The page changed after validation. Submission is disabled; refresh fields and preview a new run.', true);
+      }
+      const data = await post('/browser/detect');
+      renderFields(data.fields);
+      document.getElementById('inspection-meta').textContent = `Refreshed ${data.inspection_time}; page "${data.title}". ${data.frames.length ? `${data.frames.length} frame(s) detected; frame controls are not inspected.` : 'No frames detected.'}`;
+      setStatus(`${data.fields.length} fields refreshed after page changes.`);
+    }
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    refreshing = false;
+  }
+}, 1200);
+document.getElementById('preview').addEventListener('click', async () => {
+  try {
+    const data = await post('/browser/preview', {
+      name: document.getElementById('test-name').value,
+      seed: document.getElementById('random-seed').value,
+      rules: rulesFromPage()
+    });
+    currentRun = data.run_id; reviewed = false;
+    liveRun = new URL(data.target_url).hostname.toLowerCase().endsWith('seeedemaseekhelp.com');
+    if (currentQueueId) setQueueStatus('pending');
+    showResults(data.plan);
+    document.getElementById('apply').disabled = false;
+    document.getElementById('submit').disabled = true;
+    setStatus(`Preview only: run #${data.run_id} is pending. Review expected values before applying.`);
+  } catch (error) { setStatus(error.message, true); }
+});
+document.getElementById('apply').addEventListener('click', async () => {
+  try {
+    const data = await post('/browser/fill');
+    showResults(data.results);
+    reviewed = data.status === 'VALIDATED';
+    if (data.status === 'VALIDATION_FAILED') setQueueStatus('failed');
+    document.getElementById('submit').disabled = !reviewed || liveRun;
+    setStatus(`Field pass: ${data.status}. Inspect every actual value before submission.`, !reviewed);
+  } catch (error) { setStatus(error.message, true); }
+});
+document.getElementById('submit').addEventListener('click', async () => {
+  if (!currentRun || !reviewed || !confirm('Submit this reviewed form to the local test page?')) return;
+  try {
+    const data = await post('/browser/submit');
+    setStatus(`${data.status}${data.record_id ? ` — local record ${data.record_id}` : ''}${data.error ? ` — ${data.error}` : ''}`, data.status !== 'SUBMITTED_CONFIRMED');
+    setQueueStatus(data.status === 'SUBMITTED_CONFIRMED' ? 'completed' :
+      (data.status === 'SUBMISSION_FAILED' || data.status === 'SUBMISSION_UNVERIFIED' ? 'failed' : 'pending'));
+    if (data.record_link) {
+      const link = document.createElement('a'); link.href = data.record_link; link.textContent = 'Open verified local record'; link.className = 'link'; resultEl.append(link);
+    }
+  } catch (error) { setStatus(error.message, true); }
+});
+</script>
+</body>
+</html>
